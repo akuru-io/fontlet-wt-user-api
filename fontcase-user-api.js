@@ -3,35 +3,31 @@ import bodyParser from 'body-parser';
 import express from 'express';
 import Webtask from 'webtask-tools';
 import { MongoClient } from 'mongodb';
-import { ObjectID } from 'mongodb';
+import cors from 'cors';
+import helmet from 'helmet';
 
 const collection = 'my-collection';
 const server = express();
 
-
+server.use(helmet.xssFilter());
+server.use(helmet.hidePoweredBy());
+server.use(helmet.noSniff());
+server.use(cors());
 server.use(bodyParser.json());
-server.get('/:_id', (req, res, next) => {
+
+server.post('/registeruser', (req, res, next) => {
   const { MONGO_URL } = req.webtaskContext.secrets;
-  MongoClient.connect(MONGO_URL, (err, db) => {
-    const { _id } = req.params ;
+  const {email} = req.body;
+
+
+  MongoClient.connect(MONGO_URL, (err, client) => {
+    const db = client.db('fontcase');
+    
     if (err) return next(err);
-    db.collection(collection).findOne({ _id: new ObjectID(_id) }, (err, result) => {
-      db.close();
-      if (err) return next(err);
-      res.status(200).send(result);
-    });
-  });
-});
-server.post('/', (req, res, next) => {
-  const { MONGO_URL } = req.webtaskContext.secrets;
-  // Do data sanitation here.
-  const model = req.body;
-  MongoClient.connect(MONGO_URL, (err, db) => {
-    if (err) return next(err);
-    db.collection(collection).insertOne(model, (err, result) => {
-      db.close();
-      if (err) return next(err);
-      res.status(201).send(result);
+    db.collection(collection).insertOne({email}, (insertError) => {
+      client.close();
+      if (insertError) return next(insertError);
+      res.status(201).send('Success');
     });
   });
 });
